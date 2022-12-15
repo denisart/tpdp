@@ -1,0 +1,1 @@
+# The Pipeline Design Pattern realization in Python
