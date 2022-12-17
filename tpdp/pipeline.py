@@ -1,9 +1,11 @@
 import logging
 import time
 from datetime import datetime
+from sys import stdout
 from typing import Any, List, Optional, Tuple, TypeVar, cast
 
 import pytz
+from _io import TextIOWrapper
 from pydantic import BaseModel, Field
 
 __all__ = [
@@ -21,10 +23,6 @@ __all__ = [
     "is_step",
     "assert_step",
 ]
-
-
-log = logging.getLogger(__name__)
-log.setLevel("INFO")
 
 
 class PipelineStateError(Exception):
@@ -155,8 +153,21 @@ class Pipeline:
 
     """
 
-    def __init__(self, name: str, init_state: State_T):
+    def __init__(
+        self,
+        name: str,
+        init_state: State_T,
+        log_level: str = "INFO",
+        stream_method: TextIOWrapper = stdout,
+    ):
         self.pipeline_name = name
+
+        logging.basicConfig(
+            level=logging.getLevelName(log_level),
+            stream=stream_method,
+            format=f"[{self.pipeline_name}] %(message)s"
+        )
+        self.log = logging.getLogger(self.__class__.__name__)
 
         assert_state(init_state)
 
@@ -169,12 +180,12 @@ class Pipeline:
         assert_step(step)
 
         self.steps.append(step)
-        log.info(f'step registered: step_name="{step.step_name}"')
+        self.log.info(f'Step registered: step_name="{step.step_name}"')
 
     def run_step(self, step: Step_T, **kwargs: Any) -> StepResult:
         """Run a step."""
 
-        log.info(f"[Step] Start of {step.step_name}")
+        self.log.info(f'Start of "{step.step_name}"')
         result = StepResult(step_name=step.step_name)
 
         step_start_time = time.time()
@@ -195,19 +206,19 @@ class Pipeline:
         result.step_duration = step_final_time
         result.correct_finish = correct_step_finish
 
-        msg = f"[Step] End of {step.step_name} after {step_final_time} sec"
+        msg = f'End of "{step.step_name}" after {step_final_time:6f} sec'
 
         if not correct_step_finish:
             msg += f" with error {error_message}"
 
-        log.info(msg)
+        self.log.info(msg)
 
         return result
 
     def run(self, **kwargs: Any) -> Tuple[PipelineResult, State_T]:
         """Run the pipeline."""
 
-        log.info(f"[Pipeline] Start of {self.pipeline_name}")
+        self.log.info(f'Start of "{self.pipeline_name}"')
         result = PipelineResult(pipeline_name=self.pipeline_name)
 
         pipeline_start_time = time.time()
@@ -216,7 +227,7 @@ class Pipeline:
         correct_pipeline_finish = True
 
         if len(self.steps) == 0:
-            log.warning("Empty steps sequence")
+            self.log.warning("Empty steps sequence")
 
         for step in self.steps:
             step_result = self.run_step(step, **kwargs)
@@ -233,11 +244,11 @@ class Pipeline:
         result.step_duration = pipeline_final_time
         result.correct_finish = correct_pipeline_finish
 
-        msg = f"[Pipeline] End of {self.pipeline_name} after {pipeline_final_time} sec"
+        msg = f'End of "{self.pipeline_name}" after {pipeline_final_time:6f} sec'
 
         if not correct_pipeline_finish:
             msg += " with error"
 
-        log.info(msg)
+        self.log.info(msg)
 
         return result, self.state
