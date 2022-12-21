@@ -5,7 +5,6 @@ from sys import stdout
 from typing import Any, List, Optional, Tuple, TypeVar, cast
 
 import pytz
-from _io import TextIOWrapper
 from pydantic import BaseModel, Field
 
 __all__ = [
@@ -79,14 +78,14 @@ class State(_BaseDataContainer):
     """A general class for state of some pipeline."""
 
 
-State_T = TypeVar('State_T', bound=State)
+State_T = TypeVar('State_T', bound=State)  # pylint: disable=invalid-name
 
 
 def is_state(type_: Any) -> bool:
     return isinstance(type_, State)
 
 
-def assert_state(type_: Any) -> State_T:
+def assert_state(type_: Any) -> State_T:  # type: ignore
     if not is_state(type_):
         raise PipelineStateError(f"Expected {type_} to be a State type.")
     return cast(State_T, type_)
@@ -121,7 +120,7 @@ class Step:
         raise NotImplementedError
 
 
-Step_T = TypeVar('Step_T', bound=Step)
+Step_T = TypeVar('Step_T', bound=Step)  # pylint: disable=invalid-name
 
 
 def is_step(type_: Any) -> bool:
@@ -161,8 +160,8 @@ class Pipeline:
         self,
         name: str,
         init_state: State_T,
+        stream_method: Any = stdout,
         log_level: str = "INFO",
-        stream_method: TextIOWrapper = stdout,
     ):
         self.pipeline_name = name
 
@@ -194,12 +193,12 @@ class Pipeline:
         assert_step(step)
 
         self.steps.append(step)
-        self.log.info(f'Step registered: step_name="{step.step_name}"')
+        self.log.info('Step registered: step_name="%s"', step.step_name)
 
     def run_step(self, step: Step_T, **kwargs: Any) -> StepResult:
         """Run a step."""
 
-        self.log.info(f'Step run: step_name="{step.step_name}"')
+        self.log.info('Step run: step_name="%s"', step.step_name)
         result = StepResult(step_name=step.step_name)
 
         step_start_time = time.time()
@@ -210,7 +209,7 @@ class Pipeline:
 
         try:
             self.state = step.run(self.state, **kwargs)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-except, invalid-name
             error_message = str(e)
             correct_step_finish = False
 
@@ -232,7 +231,7 @@ class Pipeline:
     def run(self, **kwargs: Any) -> Tuple[PipelineResult, State_T]:
         """Run the pipeline."""
 
-        self.log.info(f'Pipeline start: pipeline_name="{self.pipeline_name}"')
+        self.log.info('Pipeline start: pipeline_name="%s"', self.pipeline_name)
         result = PipelineResult(pipeline_name=self.pipeline_name)
 
         pipeline_start_time = time.time()
