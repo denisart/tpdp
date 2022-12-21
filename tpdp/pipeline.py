@@ -66,10 +66,6 @@ class _TimeResultContainer(_BaseDataContainer):
         default=None,
         description="time of finish. None: object is not finished."
     )
-    step_duration: Optional[float] = Field(
-        default=None,
-        description="the duration of finished. None: object is not finished."
-    )
     correct_finish: Optional[bool] = Field(
         default=None,
         description="is object finish without error? None: object is not finished or finished with error."
@@ -103,6 +99,10 @@ class StepResult(_TimeResultContainer):
     """Container for store of step result."""
 
     step_name: str
+    step_duration: Optional[float] = Field(
+        default=None,
+        description="the duration of finished. None: object is not finished."
+    )
 
 
 class Step:
@@ -142,6 +142,10 @@ class PipelineResult(_TimeResultContainer):
 
     pipeline_name: str
     steps: List[StepResult] = Field(default_factory=list)
+    pipeline_duration: Optional[float] = Field(
+        default=None,
+        description="the duration of finished. None: object is not finished."
+    )
 
 
 class Pipeline:
@@ -162,17 +166,27 @@ class Pipeline:
     ):
         self.pipeline_name = name
 
-        logging.basicConfig(
-            level=logging.getLevelName(log_level),
-            stream=stream_method,
-            format=f"[{self.pipeline_name}] %(message)s"
-        )
-        self.log = logging.getLogger(self.__class__.__name__)
+        self.log_level = log_level
+        self.stream_method = stream_method
+
+        self.log = self._init_logger()
 
         assert_state(init_state)
 
         self.state = init_state
         self.steps: List[Step] = []
+
+    def _init_logger(self) -> logging.Logger:
+        log = logging.getLogger(__name__)
+        log.setLevel(self.log_level)
+
+        handler = logging.StreamHandler(stream=self.stream_method)
+        handler.setFormatter(
+            logging.Formatter(fmt='[%(asctime)s: %(levelname)s] %(name)s: %(message)s')
+        )
+        log.addHandler(handler)
+
+        return log
 
     def registry(self, step: Step_T):
         """Registry a step to pipeline."""
@@ -185,7 +199,7 @@ class Pipeline:
     def run_step(self, step: Step_T, **kwargs: Any) -> StepResult:
         """Run a step."""
 
-        self.log.info(f'Start of "{step.step_name}"')
+        self.log.info(f'Step run: step_name="{step.step_name}"')
         result = StepResult(step_name=step.step_name)
 
         step_start_time = time.time()
@@ -206,10 +220,10 @@ class Pipeline:
         result.step_duration = step_final_time
         result.correct_finish = correct_step_finish
 
-        msg = f'End of "{step.step_name}" after {step_final_time:6f} sec'
+        msg = f'Step finish: step_name="{step.step_name}", step_duration="{step_final_time:6f}"'
 
         if not correct_step_finish:
-            msg += f" with error {error_message}"
+            msg += f', run_error="{error_message}"'
 
         self.log.info(msg)
 
@@ -218,7 +232,7 @@ class Pipeline:
     def run(self, **kwargs: Any) -> Tuple[PipelineResult, State_T]:
         """Run the pipeline."""
 
-        self.log.info(f'Start of "{self.pipeline_name}"')
+        self.log.info(f'Pipeline start: pipeline_name="{self.pipeline_name}"')
         result = PipelineResult(pipeline_name=self.pipeline_name)
 
         pipeline_start_time = time.time()
@@ -241,13 +255,10 @@ class Pipeline:
         pipeline_final_time = time.time() - pipeline_start_time
 
         result.finish_at = datetime.now().astimezone(pytz.utc)
-        result.step_duration = pipeline_final_time
+        result.pipeline_duration = pipeline_final_time
         result.correct_finish = correct_pipeline_finish
 
-        msg = f'End of "{self.pipeline_name}" after {pipeline_final_time:6f} sec'
-
-        if not correct_pipeline_finish:
-            msg += " with error"
+        msg = f'Pipeline finish: pipeline_name="{self.pipeline_name}", pipeline_duration="{pipeline_final_time:6f}"'
 
         self.log.info(msg)
 
