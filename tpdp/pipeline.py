@@ -176,7 +176,7 @@ class Pipeline:
         self.steps: List[Step] = []
 
     def _init_logger(self) -> logging.Logger:
-        log = logging.getLogger(__name__)
+        log = logging.getLogger(self.pipeline_name)
         log.setLevel(self.log_level)
 
         handler = logging.StreamHandler(stream=self.stream_method)
