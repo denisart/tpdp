@@ -22,33 +22,32 @@ class SimpleState(State):
 
 init_state = SimpleState(pipeline_name="simple_pipeline")
 
-pipeline = Pipeline(name="simple_pipeline", init_state=init_state)
-log = pipeline.log
+pipeline = Pipeline(name="simple_pipeline")
 
 class Step1(Step):
     def run(self, state: SimpleState, **kwargs) -> SimpleState:
         state.step_1_count += 1
-        log.info("step_1_count increased by 1")
+        self.logger.info("step_1_count increased by 1")
         return state
 
 class Step2(Step):
     def run(self, state: SimpleState, **kwargs) -> SimpleState:
         state.step_2_count += 1
-        log.info("step_2_count increased by 1")
+        self.logger.info("step_2_count increased by 1")
         return state
 
-step_1 = Step1(name="step_1")
-step_2 = Step2(name="step_2")
+step_1 = Step1(step_name="step_1")
+step_2 = Step2(step_name="step_2")
 
-pipeline.registry(step_1)
-pipeline.registry(step_2)
-pipeline.registry(step_1)
-pipeline.registry(step_2)
-pipeline.registry(step_1)
-pipeline.registry(step_2)
-pipeline.registry(step_1)
+pipeline.registry_step(step_1)
+pipeline.registry_step(step_2)
+pipeline.registry_step(step_1)
+pipeline.registry_step(step_2)
+pipeline.registry_step(step_1)
+pipeline.registry_step(step_2)
+pipeline.registry_step(step_1)
 
-result, final_state = pipeline.run()
+result, final_state = pipeline.run(init_state=init_state)
 
 print(f"final_state.step_1_count = {final_state.step_1_count}")
 print(f"final_state.step_2_count = {final_state.step_2_count}")
@@ -57,36 +56,36 @@ print(f"final_state.step_2_count = {final_state.step_2_count}")
 You will see the following logs
 
 ```bash
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step registered: step_name="step_1"
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step registered: step_name="step_2"
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step registered: step_name="step_1"
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step registered: step_name="step_2"
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step registered: step_name="step_1"
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step registered: step_name="step_2"
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step registered: step_name="step_1"
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Pipeline start: pipeline_name="simple_pipeline"
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step run: step_name="step_1"
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: step_1_count increased by 1
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step finish: step_name="step_1", step_duration="..."
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step run: step_name="step_2"
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: step_2_count increased by 1
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step finish: step_name="step_2", step_duration="..."
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step run: step_name="step_1"
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: step_1_count increased by 1
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step finish: step_name="step_1", step_duration="..."
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step run: step_name="step_2"
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: step_2_count increased by 1
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step finish: step_name="step_2", step_duration="..."
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step run: step_name="step_1"
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: step_1_count increased by 1
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step finish: step_name="step_1", step_duration="..."
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step run: step_name="step_2"
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: step_2_count increased by 1
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step finish: step_name="step_2", step_duration="..."
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step run: step_name="step_1"
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: step_1_count increased by 1
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Step finish: step_name="step_1", step_duration="..."
-[2022-12-21 17:19:54,662: INFO] tpdp.pipeline: Pipeline finish: pipeline_name="simple_pipeline", pipeline_duration="..."
+[...: INFO] Pipeline: Step registered: step_name="step_1"
+[...: INFO] Pipeline: Step registered: step_name="step_2"
+[...: INFO] Pipeline: Step registered: step_name="step_1"
+[...: INFO] Pipeline: Step registered: step_name="step_2"
+[...: INFO] Pipeline: Step registered: step_name="step_1"
+[...: INFO] Pipeline: Step registered: step_name="step_2"
+[...: INFO] Pipeline: Step registered: step_name="step_1"
+[...: INFO] Pipeline: Pipeline start: pipeline_name="simple_pipeline", start_at="..."
+[...: INFO] Pipeline: Step start: step_name="step_1"
+[...: INFO] Step1: step_1_count increased by 1
+[...: INFO] Pipeline: Step finish: step_name="step_1", step_duration="0.000024"
+[...: INFO] Pipeline: Step start: step_name="step_2"
+[...: INFO] Step2: step_2_count increased by 1
+[...: INFO] Pipeline: Step finish: step_name="step_2", step_duration="0.000020"
+[...: INFO] Pipeline: Step start: step_name="step_1"
+[...: INFO] Step1: step_1_count increased by 1
+[...: INFO] Pipeline: Step finish: step_name="step_1", step_duration="0.000016"
+[...: INFO] Pipeline: Step start: step_name="step_2"
+[...: INFO] Step2: step_2_count increased by 1
+[...: INFO] Pipeline: Step finish: step_name="step_2", step_duration="0.000016"
+[...: INFO] Pipeline: Step start: step_name="step_1"
+[...: INFO] Step1: step_1_count increased by 1
+[...: INFO] Pipeline: Step finish: step_name="step_1", step_duration="0.000016"
+[...: INFO] Pipeline: Step start: step_name="step_2"
+[...: INFO] Step2: step_2_count increased by 1
+[...: INFO] Pipeline: Step finish: step_name="step_2", step_duration="0.000016"
+[...: INFO] Pipeline: Step start: step_name="step_1"
+[...: INFO] Step1: step_1_count increased by 1
+[...: INFO] Pipeline: Step finish: step_name="step_1", step_duration="0.000023"
+[...: INFO] Pipeline: Pipeline finish: pipeline_name="simple_pipeline", finish_at="...", duration="0.0005033016204833984"
 final_state.step_1_count = 4
 final_state.step_2_count = 3
 ```
