@@ -1,35 +1,53 @@
+from __future__ import annotations  # Python < 3.10
+
 import logging
+import sys
 import time
 from datetime import datetime
-from sys import stdout
-from typing import Any, List, Optional, Tuple, TypeVar, cast
+from typing import Any, Callable, List, Optional
 
-import pytz
 from pydantic import BaseModel, Field
 
-__all__ = [
-    "StepResult",
-    "PipelineResult",
-    "State",
-    "Step",
-    "Pipeline",
-    # exceptions
-    "PipelineStateError",
-    "PipelineRegistryError",
-    # methods
-    "is_state",
-    "assert_state",
-    "is_step",
-    "assert_step",
-]
+if sys.version_info >= (3, 10):
+    from typing import TypeGuard
+else:
+    # Use TypeGuard from typing_extensions for python <= 3.9
+    from typing_extensions import TypeGuard
 
 
-class PipelineStateError(Exception):
-    """An exception for some error when we have a problem for initial pipeline state."""
+#
+# base
+#
+class TpdpException(Exception):
+    """An exception for tpdp package."""
 
 
-class PipelineRegistryError(Exception):
-    """An exception for some error when we have a problem for step registry."""
+class _LoggingMixin:
+    """LoggingMixin for `tpdp`."""
+
+    DEFAULT_LOGGER_LEVEL = logging.INFO
+    DEFAULT_LOGGER_STREAM = sys.stdout
+    DEFAULT_LOGGER_FORMAT = "[%(asctime)s: %(levelname)s] %(name)s: %(message)s"
+
+    def __init__(self, logger: Optional[logging.Logger] = None, **kwargs: Any) -> None:
+        self._init_logger(logger)
+
+    def _default_logger(self) -> logging.Logger:
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.setLevel(self.DEFAULT_LOGGER_LEVEL)
+
+        handler = logging.StreamHandler(stream=self.DEFAULT_LOGGER_STREAM)
+        handler.setFormatter(logging.Formatter(fmt=self.DEFAULT_LOGGER_FORMAT))
+        logger.addHandler(handler)
+
+        return logger
+
+    def _init_logger(self, input_logger: Optional[logging.Logger]) -> None:
+        if input_logger is not None:
+            self.logger = input_logger
+            return
+
+        self.logger = self._default_logger()
 
 
 class _BaseDataContainer(BaseModel):
@@ -37,228 +55,251 @@ class _BaseDataContainer(BaseModel):
 
     class Config:
         """Config for some data container."""
+
         allow_population_by_field_name = True
         smart_union = True
-        json_encoders = {
-            # custom output conversion for datetime
-            datetime: lambda dt: dt.isoformat()
-        }
-
-    @classmethod
-    def from_dict(cls, obj: Any):
-        """Special wrapper over .parse_obj method."""
-        return cls.parse_obj(obj)
-
-    def to_dict(self):
-        """Special wrapper over .dict method."""
-        return self.dict(by_alias=True)
 
 
 class _TimeResultContainer(_BaseDataContainer):
     """A general class for each container with time management."""
 
-    start_at: Optional[datetime] = Field(
-        default=None,
-        description="time of start. None: object is not started."
-    )
-    finish_at: Optional[datetime] = Field(
-        default=None,
-        description="time of finish. None: object is not finished."
-    )
+    start_at: Optional[datetime] = Field(default=None, description="time of start. None: object is not started.")
+    finish_at: Optional[datetime] = Field(default=None, description="time of finish. None: object is not finished.")
     correct_finish: Optional[bool] = Field(
-        default=None,
-        description="is object finish without error? None: object is not finished or finished with error."
+        default=None, description="is object finish without error? None: object is not finished or finished with error."
     )
 
 
 #
-# Pipeline State
+# state
 #
 class State(_BaseDataContainer):
     """A general class for state of some pipeline."""
 
 
-State_T = TypeVar('State_T', bound=State)  # pylint: disable=invalid-name
-
-
-def is_state(type_: Any) -> bool:
+def is_state(type_: Any) -> TypeGuard[State]:
     return isinstance(type_, State)
 
 
-def assert_state(type_: Any) -> State_T:  # type: ignore
+def assert_state(type_: Any) -> State:
     if not is_state(type_):
-        raise PipelineStateError(f"Expected {type_} to be a State type.")
-    return cast(State_T, type_)
+        raise TpdpException(f"Expected {type_} to be a State type.")
+    return type_
 
 
 #
-# Pipeline Step
+# step
 #
 class StepResult(_TimeResultContainer):
     """Container for store of step result."""
 
-    step_name: str
-    step_duration: Optional[float] = Field(
-        default=None,
-        description="the duration of finished. None: object is not finished."
+    name: str
+    duration: Optional[float] = Field(
+        default=None, description="the duration of finished. None: object is not finished."
     )
 
 
-class Step:
-    """An abstract class for some pipeline step representation.
+class Step(_LoggingMixin):
+    """An abstract class for some pipeline step representation."""
 
-    Args:
-        name: a name of step.
+    step_name: str
 
-    """
+    def __init__(self, step_name: str, **kwargs: Any) -> None:
+        super(Step, self).__init__(**kwargs)
 
-    def __init__(self, name: str):
-        self.step_name = name
+        self.step_name = step_name
 
-    def run(self, state: State_T, **kwargs: Any) -> State_T:
-        """Run of this step and modify of input state."""
+    def run(self, state: State, pipeline_abort: Optional[Callable[[], None]] = None, **kwargs: Any) -> State:
+        """Run of this step and modify of input state.
+
+        Arguments:
+            state: init state.
+            pipeline_abort: hook for pipeline aborting.
+
+        """
         raise NotImplementedError
 
 
-Step_T = TypeVar('Step_T', bound=Step)  # pylint: disable=invalid-name
-
-
-def is_step(type_: Any) -> bool:
+def is_step(type_: Any) -> TypeGuard[Step]:
     return isinstance(type_, Step)
 
 
 def assert_step(type_: Any) -> Step:
     if not is_step(type_):
-        raise PipelineRegistryError(f"Expected {type_} to be a Step type.")
-    return cast(Step, type_)
+        raise TpdpException(f"Expected {type_} to be a Step type.")
+    return type_
 
 
 #
-# Pipeline
+# pipeline
 #
 class PipelineResult(_TimeResultContainer):
     """Container for store of pipeline result."""
 
     pipeline_name: str
-    steps: List[StepResult] = Field(default_factory=list)
+    steps_result: List[StepResult] = Field(default_factory=list)
     pipeline_duration: Optional[float] = Field(
-        default=None,
-        description="the duration of finished. None: object is not finished."
+        default=None, description="the duration of finished. None: object is not finished."
     )
 
 
-class Pipeline:
-    """A special class with the Pipeline Design Pattern realization.
+class Pipeline(_LoggingMixin):
+    """A special class with the Pipeline Design Pattern realization."""
 
-    Args:
-        name: the name of pipeline.
-        init_state: initial state of the pipeline.
+    _pipeline_name: str
+    _pipeline_abort: bool
 
-    """
+    _ignore_exception: bool
+
+    _pipeline_start_time: float
+    _pipeline_finish_time: float
+    _pipeline_duration: float
+
+    _pipeline_start_datetime: datetime
+    _pipeline_finish_datetime: datetime
+
+    _correct_finish: bool
+
+    _state: State
+    _steps: List[Step]
+    _steps_result: List[StepResult]
 
     def __init__(
         self,
         name: str,
-        init_state: State_T,
-        stream_method: Any = stdout,
-        log_level: str = "INFO",
+        ignore_exception: bool = True,
+        **kwargs: Any,
     ):
-        self.pipeline_name = name
+        super(Pipeline, self).__init__(**kwargs)
 
-        self.log_level = log_level
-        self.stream_method = stream_method
+        self._pipeline_abort = False
+        self._pipeline_name = name
 
-        self.log = self._init_logger()
+        self._ignore_exception = ignore_exception
 
-        assert_state(init_state)
+        self._steps = []
+        self._steps_result = []
 
-        self.state = init_state
-        self.steps: List[Step] = []
-
-    def _init_logger(self) -> logging.Logger:
-        log = logging.getLogger(__name__)
-        log.setLevel(self.log_level)
-
-        handler = logging.StreamHandler(stream=self.stream_method)
-        handler.setFormatter(
-            logging.Formatter(fmt='[%(asctime)s: %(levelname)s] %(name)s: %(message)s')
+    def _pipeline_start_log(self) -> None:
+        self.logger.info(
+            'Pipeline start: pipeline_name="%s", start_at="%s"',
+            self._pipeline_name,
+            self._pipeline_start_datetime.isoformat(),
         )
-        log.addHandler(handler)
 
-        return log
+    def _pipeline_finish_log(self) -> None:
+        self.logger.info(
+            'Pipeline finish: pipeline_name="%s", finish_at="%s", duration="%s"',
+            self._pipeline_name,
+            self._pipeline_finish_datetime.isoformat(),
+            self._pipeline_duration,
+        )
 
-    def registry(self, step: Step_T):
+    def _start_pipeline(self) -> None:
+        self._pipeline_start_time = time.time()
+        self._pipeline_start_datetime = datetime.now()
+
+        self._pipeline_start_log()
+
+    def _finish_pipeline(self) -> None:
+        self._pipeline_finish_time = time.time()
+        self._pipeline_finish_datetime = datetime.now()
+        self._pipeline_duration = self._pipeline_finish_time - self._pipeline_start_time
+
+        self._pipeline_finish_log()
+
+    def _get_pipeline_result(self) -> PipelineResult:
+        return PipelineResult(
+            pipeline_name=self._pipeline_name,
+            steps_result=self._steps_result,
+            pipeline_duration=self._pipeline_duration,
+            start_at=self._pipeline_start_datetime,
+            finish_at=self._pipeline_finish_datetime,
+            correct_finish=self._correct_finish,
+        )
+
+    def _run_step(self, step: Step, **kwargs: Any) -> StepResult:
+        self.logger.info('Step start: step_name="%s"', step.step_name)
+
+        step_start_time = time.time()
+        step_start_datetime = datetime.now()
+
+        step_correct_finish = True
+        error_message = ""
+
+        try:
+            self._state = step.run(self._state, pipeline_abort=self.pipeline_abort, **kwargs)
+        except Exception as e:
+            step_correct_finish = False
+
+            if self._ignore_exception is True:
+                error_message = str(e)
+            else:
+                raise e
+
+        step_finish_time = time.time()
+        step_finish_datetime = datetime.now()
+        step_duration = step_finish_time - step_start_time
+
+        result = StepResult(
+            name=step.step_name,
+            duration=step_duration,
+            start_at=step_start_datetime,
+            finish_at=step_finish_datetime,
+            correct_finish=step_correct_finish,
+        )
+
+        run_msg = f'Step finish: step_name="{step.step_name}", step_duration="{step_duration:6f}"'
+
+        if not step_correct_finish:
+            run_msg += f', run_error="{error_message}"'
+
+        self.logger.info(run_msg)
+
+        return result
+
+    def pipeline_abort(self) -> None:
+        """Aborting the pipeline."""
+        self._pipeline_abort = True
+
+    def registry_step(self, step: Step) -> None:
         """Registry a step to pipeline."""
 
         assert_step(step)
 
-        self.steps.append(step)
-        self.log.info('Step registered: step_name="%s"', step.step_name)
+        self._steps.append(step)
+        self.logger.info('Step registered: step_name="%s"', step.step_name)
 
-    def run_step(self, step: Step_T, **kwargs: Any) -> StepResult:
-        """Run a step."""
+    def get_state(self) -> State:
+        return self._state
 
-        self.log.info('Step run: step_name="%s"', step.step_name)
-        result = StepResult(step_name=step.step_name)
-
-        step_start_time = time.time()
-        result.start_at = datetime.now().astimezone(pytz.utc)
-
-        correct_step_finish = True
-        error_message = ""
-
-        try:
-            self.state = step.run(self.state, **kwargs)
-        except Exception as e:  # pylint: disable=broad-except, invalid-name
-            error_message = str(e)
-            correct_step_finish = False
-
-        step_final_time = time.time() - step_start_time
-
-        result.finish_at = datetime.now().astimezone(pytz.utc)
-        result.step_duration = step_final_time
-        result.correct_finish = correct_step_finish
-
-        msg = f'Step finish: step_name="{step.step_name}", step_duration="{step_final_time:6f}"'
-
-        if not correct_step_finish:
-            msg += f', run_error="{error_message}"'
-
-        self.log.info(msg)
-
-        return result
-
-    def run(self, **kwargs: Any) -> Tuple[PipelineResult, State_T]:
+    def run(self, init_state: State, **kwargs: Any) -> PipelineResult:
         """Run the pipeline."""
 
-        self.log.info('Pipeline start: pipeline_name="%s"', self.pipeline_name)
-        result = PipelineResult(pipeline_name=self.pipeline_name)
+        self._start_pipeline()
 
-        pipeline_start_time = time.time()
-        result.start_at = datetime.now().astimezone(pytz.utc)
+        self._state = init_state
+        assert_state(self._state)
 
-        correct_pipeline_finish = True
+        self._correct_finish = True
 
-        if len(self.steps) == 0:
-            self.log.warning("Empty steps sequence")
+        if len(self._steps) == 0:
+            self.logger.warning("Empty steps sequence")
+            self._finish_pipeline()
 
-        for step in self.steps:
-            step_result = self.run_step(step, **kwargs)
+            return self._get_pipeline_result()
 
-            result.steps.append(step_result)
+        for step in self._steps:
+            step_result = self._run_step(step, **kwargs)
+            self._steps_result.append(step_result)
 
             if not step_result.correct_finish:
-                correct_pipeline_finish = False
+                self._correct_finish = False
                 break
 
-        pipeline_final_time = time.time() - pipeline_start_time
+            if self._pipeline_abort is True:
+                self.logger.info('Pipeline was aborted by a step: step_name="%s"', step.step_name)
+                break
 
-        result.finish_at = datetime.now().astimezone(pytz.utc)
-        result.pipeline_duration = pipeline_final_time
-        result.correct_finish = correct_pipeline_finish
-
-        msg = f'Pipeline finish: pipeline_name="{self.pipeline_name}", pipeline_duration="{pipeline_final_time:6f}"'
-
-        self.log.info(msg)
-
-        return result, self.state
+        self._finish_pipeline()
+        return self._get_pipeline_result()

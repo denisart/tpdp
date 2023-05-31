@@ -9,8 +9,8 @@
 # release fixes:    X.Y.Z.postN
 #
 MAJOR_VERSION = "0"
-MINOR_VERSION = "0"
-MICRO_VERSION = "1"
+MINOR_VERSION = "1"
+MICRO_VERSION = "0"
 
 
 __version__ = f"{MAJOR_VERSION}.{MINOR_VERSION}.{MICRO_VERSION}"
