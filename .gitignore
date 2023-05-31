@@ -85,9 +85,12 @@ __pycache__/
 *$py.class
 *.egg-info/
 
+
 .env
 .venv
 env/
 venv/
 .mypy_cache/
+.pytest_cache/
 dist/
+.coverage

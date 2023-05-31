@@ -1,0 +1,81 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "tpdp/__version__.py"
+
+[project]
+name = "tpdp"
+description = "The Pipeline Design Pattern realization in python."
+readme = "README.md"
+authors = [
+  {name = "Denis A. Artyushin", email = "artyushinden@gmail.com"},
+]
+keywords = [
+  "pipeline",
+]
+license = "MIT"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Unix",
+    "Operating System :: POSIX :: Linux",
+    "Environment :: MacOS X",
+    "Framework :: Pydantic",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.7"
+dependencies = [
+    "pydantic>=1.10, <1.11",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/denisart/tpdp"
+Documentation = "https://denisart.github.io/tpdp"
+Source = "https://github.com/denisart/tpdp"
+
+[project.optional-dependencies]
+# all requirements for linting, building and etc.
+dev = [
+    "mypy",
+    "ruff",
+    "wheel",
+    "black",
+]
+
+# all requirements for tests
+test = [
+    "pytest",
+    "pytest-mock",
+    "pytest-cov",
+]
+
+# all requirements for docs generation
+docs = [
+    "sphinx",
+    "sphinx_rtd_theme",
+    "sphinx-argparse",
+    "sphinxcontrib-github",
+]
+
+[tool.ruff]
+line-length = 120
+flake8-quotes = {inline-quotes = 'single', multiline-quotes = 'double'}
+mccabe = { max-complexity = 14 }
+target-version = "py37"
+
+[tool.black]
+color = true
+line-length = 120
+target-version = ['py310']
+skip-string-normalization = true

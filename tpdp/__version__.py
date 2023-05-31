@@ -1,18 +1,1 @@
-#
-# Package version
-# see https://peps.python.org/pep-0440/
-#
-# __version__ = X.Y.Z*[rcN][.postN]
-#
-# pre-release:      X.Y.ZrcN
-# release:          X.Y.Z
-# release fixes:    X.Y.Z.postN
-#
-MAJOR_VERSION = "0"
-MINOR_VERSION = "1"
-MICRO_VERSION = "0"
-
-
-__version__ = f"{MAJOR_VERSION}.{MINOR_VERSION}.{MICRO_VERSION}"
-# __version__ = f"{MAJOR_VERSION}.{MINOR_VERSION}.{MICRO_VERSION}rcN"
-# __version__ = f"{MAJOR_VERSION}.{MINOR_VERSION}.{MICRO_VERSION}.post1"
+__version__ = "0.1.0"
