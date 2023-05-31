@@ -47,7 +47,8 @@ pipeline.registry_step(step_1)
 pipeline.registry_step(step_2)
 pipeline.registry_step(step_1)
 
-result, final_state = pipeline.run(init_state=init_state)
+result = pipeline.run(init_state=init_state)
+final_state = pipeline.get_state()
 
 print(f"final_state.step_1_count = {final_state.step_1_count}")
 print(f"final_state.step_2_count = {final_state.step_2_count}")
